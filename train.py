@@ -2,87 +2,83 @@ import os
 import torch
 import torch.optim as optim
 
-from model import MobileNetV2
-from model import NORMALIZER, TRAIN_LOADER, CLASSES
+from backdoor_injection import BackdoorInjector
+
+from model import ResNet18
+from model import TRAIN_LOADER, CLASSES, NORMALIZER, DENORMALIZER
 from model import TEST_LOADER as VAL_LOADER
+from model import trainer
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(f"[INFO] Currently used device: {DEVICE}")
 
 if __name__ == "__main__":
+
+    # DECLARES THE BACKDOOR INJECTION NUMBER 1 METHOD
     
-    # DECLARES MODEL
-    model  = MobileNetV2()
-    test   = torch.randn(2,3,32,32)
-    output = model(test)
-    assert(list(output.size()) == [2, 10])
+    ###  If you want a benign model
+    
+    # backdoor_injector = None 
 
-    # DECLARES TRAINING PARAMETERS
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    epochs    = 25
-    lower_lr  = [10, 20]
+    ### if you want a backdoored model
 
-    # RUNS TRAINING
-    model.to(DEVICE)
+    # Declares the trigger specification
+    backdoor_trigger_1      = torch.Tensor([[[1,1,0],[1,1,1],[0,1,0]]]).repeat(1,3,1,1) #BW pattern
+    backdoor_trigger_mask_1 = torch.zeros((1,3,32,32)) # declares the location of the mask
+    backdoor_trigger_mask_1[:,:,9:12,9:12] = 1
+    backdoor_trigger_mask_1 = backdoor_trigger_mask_1 == 1
+    backdoor_trigger_1      = backdoor_trigger_1.to(DEVICE)
+    backdoor_trigger_mask_1 = backdoor_trigger_mask_1.to(DEVICE)
+    # Declares the backdoor learning parameters
+    backdoor_poison_rate_1  = 0.1
+    backdoor_target_class_1 = 3
 
-    for epoch in range(epochs):  # loop over the dataset multiple times
+    # Declares the trigger specification
+    backdoor_trigger_2      = torch.Tensor([[[0,1,0],[1,0,1],[0,1,0]]]).repeat(1,3,1,1) #BW pattern
+    backdoor_trigger_mask_2 = torch.zeros(1,3,32,32) # declares the location of the mask
+    backdoor_trigger_mask_2[:,:,20:23,20:23] = 1
+    backdoor_trigger_mask_2 = backdoor_trigger_mask_2 == 1
+    backdoor_trigger_2      = backdoor_trigger_2.to(DEVICE)
+    backdoor_trigger_mask_2 = backdoor_trigger_mask_2.to(DEVICE)
+    # Declares the backdoor learning parameters
+    backdoor_poison_rate_2  = 0.1
+    backdoor_target_class_2 = 6
 
-        print(f"[INFO] Running epoch {epoch+1}")
+    # Declares the backdoor method declaration
+    backdoor_injector_1 = BackdoorInjector(
+        NORMALIZER, DENORMALIZER, 
+        backdoor_poison_rate_1, backdoor_target_class_1, 
+        backdoor_trigger_1, backdoor_trigger_mask_1
+    )
 
-        if epoch in lower_lr:
-            for g in optim.param_groups:
-                g['lr'] *= 0.1
+    # Declares the backdoor method declaration
+    backdoor_injector_2 = BackdoorInjector(
+        NORMALIZER, DENORMALIZER, 
+        backdoor_poison_rate_2, backdoor_target_class_2, 
+        backdoor_trigger_2, backdoor_trigger_mask_2
+    )
 
+    # TRAINS THE MODEL
+    lr          = 0.01
+    lr_schedule = [15, 25]
+    epochs      = 30
+    injectors = [backdoor_injector_1, backdoor_injector_2]
 
-        model.train()
+    trained_model, acc, asrs = trainer(ResNet18, DEVICE, TRAIN_LOADER, VAL_LOADER, epochs, lr, lr_schedule, CLASSES, injectors)
 
-        running_loss = 0.0
-        for i, data in enumerate(TRAIN_LOADER, 0):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
-            inputs = inputs.to(DEVICE)
-            labels = labels.to(DEVICE)
+    save_path = f"checkpoints/cnn_ep{epochs}_acc{acc:.1f}.pth"
+    torch.save({
+        "epoch": epochs,
+        "model_state_dict": trained_model.state_dict(),
+        "accuracy": acc,
+        "attack_success_rates": asrs,
+        "target_classes": [b.target for b in injectors]        
+    }, save_path)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # forward + backward + optimize
-            outputs = model(inputs)
-            loss    = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            # print statistics
-            running_loss += loss.detach().cpu().item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print(f'[INFO] [{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-                running_loss = 0.0
-
-        # prepare to count predictions for each class
-        correct_pred = {classname: 0 for classname in CLASSES}
-        total_pred = {classname: 0 for classname in CLASSES}
-
-        model.eval()
-
-        # again no gradients needed
-        with torch.no_grad():
-            for data in VAL_LOADER:
-                images, labels = data
-                images = images.to(DEVICE)
-                labels = labels.to(DEVICE)
-                outputs        = model(images)
-                _, predictions = torch.max(outputs, 1)
-                # collect the correct predictions for each class
-                for label, prediction in zip(labels, predictions):
-                    if label == prediction:
-                        correct_pred[CLASSES[label]] += 1
-                    total_pred[CLASSES[label]] += 1
-
-
-        # print accuracy for each class
-        for classname, correct_count in correct_pred.items():
-            accuracy = 100 * float(correct_count) / total_pred[classname]
-            print(f'[INFO] Accuracy for class: {classname:5s} is {accuracy:.1f} %')
-
+    # Reload check
+    checkpoint = torch.load(save_path, weights_only=True)
+    trained_model.load_state_dict(checkpoint['model_state_dict'])
+    
+    print("[INFO] Final total accuracy: {acc:.1f}%")
+    print("[INFO] Final attack success rates -- ", " ".join([f"{CLASSES[injectors[i].target]}: {asr:.1}%" for i, asr in enumerate(asrs)]))
     print('[INFO] Finished Training')

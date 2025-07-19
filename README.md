@@ -22,7 +22,21 @@ It contains:
 
 ### How to reproduce the content of this repository
 
-**TBD**
+Here is how to setup the environment for pytorch GPU 11.8 [4] using conda only (have it installed first [5]).
+
+```console
+$ conda create -n pytorch python=3.10
+$ conda activate pytorch
+$ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
+
+Then you can train and run the importance splitting recovery method as such:
+
+```console
+$ python train.py
+$ # TO COMPLETE
+```
+
 
 ### How to cite the research paper
 
@@ -46,3 +60,7 @@ It contains:
 [2] https://hal.univ-lille.fr/IRISA_SET/hal-04485197v1 (open access .pdf)
 
 [3] https://hal.science/inria-00584352/
+
+[4] https://pytorch.org/get-started/locally/
+
+[5] https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
