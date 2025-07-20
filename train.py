@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # TRAINS THE MODEL
     lr          = 0.01
     lr_schedule = [15, 25]
-    epochs      = 30
+    epochs      = 50
     injectors = [backdoor_injector_1, backdoor_injector_2]
 
     trained_model, acc, asrs = trainer(ResNet18, DEVICE, TRAIN_LOADER, VAL_LOADER, epochs, lr, lr_schedule, CLASSES, injectors)
@@ -79,6 +79,6 @@ if __name__ == "__main__":
     checkpoint = torch.load(save_path, weights_only=True)
     trained_model.load_state_dict(checkpoint['model_state_dict'])
     
-    print("[INFO] Final total accuracy: {acc:.1f}%")
-    print("[INFO] Final attack success rates -- ", " ".join([f"{CLASSES[injectors[i].target]}: {asr:.1}%" for i, asr in enumerate(asrs)]))
+    print(f"[INFO] Final total accuracy: {acc:.1f}%")
+    print("[INFO] Final attack success rates -- ", " ".join([f"{CLASSES[injectors[i].target]}: {asr:.1f}%" for i, asr in enumerate(asrs)]))
     print('[INFO] Finished Training')

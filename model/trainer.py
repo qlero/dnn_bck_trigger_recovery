@@ -12,20 +12,20 @@ def trainer(architecture, device, train_loader, val_loader, epochs, lr, lr_sched
 
     # DECLARES TRAINING PARAMETERS
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=lr,  momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     # RUNS TRAINING
     model.to(device)
-
-    # Return values
 
     for epoch in range(epochs):  # loop over the dataset multiple times
 
         print(f"[INFO] Running epoch {epoch+1}")
 
-        if epoch in lr_schedule:
-            for g in optimizer.param_groups:
-                g['lr'] *= 0.1
+        # Updates the learning rate if need be
+        # if epoch in lr_schedule:
+        #     for g in optimizer.param_groups:
+        #         g['lr'] *= 0.1
                 
         model.train()
 
@@ -61,6 +61,8 @@ def trainer(architecture, device, train_loader, val_loader, epochs, lr, lr_sched
             if i % 2000 == 1999:    # print every 2000 mini-batches
                 print(f'[INFO] [{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
+
+        scheduler.step()
 
         # prepare to count predictions for each class
         correct_pred = {classname: 0 for classname in classes}

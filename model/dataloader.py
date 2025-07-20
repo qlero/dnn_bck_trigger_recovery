@@ -36,7 +36,7 @@ DENORMALIZER = tt.Compose(
 
 CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-batch_size = 64
+batch_size = 128
 
 TRAIN_SET = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=FROM_PIL_TRAIN_NORMALIZER)
 TRAIN_LOADER = torch.utils.data.DataLoader(TRAIN_SET, batch_size=batch_size, shuffle=True, num_workers=2)
