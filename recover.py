@@ -46,27 +46,30 @@ if __name__ == "__main__":
                 continue
             break
 
-    # Declares the Gaussian IS process
-    
-    # outer_iterations = 100
-    # inner_iterations = 40
-    # nb_candidates    = 64
-    # strength         = 1
-    # decay            = 0.02
-    # name             = "GaussianIS"
-    # IS = GaussianImportanceSplitting(outer_iterations, inner_iterations, nb_candidates, strength, decay, name)
+    for target in targets:
+        # Declares the IID IS process
+        
+        outer_iterations = 100
+        inner_iterations = 40
+        nb_candidates    = 128
+        strength         = 0.5
+        decay            = 0.02
+        sparseness       = 0.1
+        name             = "IIDIS"
+        IS = IIDImportanceSplitting(target, outer_iterations, inner_iterations, nb_candidates, strength, decay, sparseness, name)
 
-    # candidates, probabilities, thresholds = IS.engine(model, datapoints, targets[0], NORMALIZER, DENORMALIZER, DEVICE)
+        candidates, probabilities, thresholds = IS.engine(model, datapoints, NORMALIZER, DENORMALIZER, DEVICE)
 
-    # Declares the IID IS process
-    
-    outer_iterations = 100
-    inner_iterations = 40
-    nb_candidates    = 64
-    strength         = 0.5
-    decay            = 0.02
-    sparseness       = 0.1
-    name             = "IIDIS"
-    IS = IIDImportanceSplitting(outer_iterations, inner_iterations, nb_candidates, strength, decay, sparseness, name)
+        # Declares the Gaussian IS process
+        
+        outer_iterations = 100
+        inner_iterations = 40
+        nb_candidates    = 12*4
+        strength         = 1
+        decay            = 0.02
+        name             = "GaussianIS"
+        IS = GaussianImportanceSplitting(target, outer_iterations, inner_iterations, nb_candidates, strength, decay, name)
 
-    candidates, probabilities, thresholds = IS.engine(model, datapoints, targets[0], NORMALIZER, DENORMALIZER, DEVICE)
+        candidates, probabilities, thresholds = IS.engine(model, datapoints, NORMALIZER, DENORMALIZER, DEVICE)
+
+        
