@@ -33,10 +33,14 @@ $ pip3 install torch torchvision torchaudio --index-url https://download.pytorch
 Then you can train and run the importance splitting recovery method as such:
 
 ```console
-$ python train.py
-$ # TO COMPLETE
+$ python train.py 
+$ python recover.py
 ```
 
+The script `train.py` trains a ResNet model to classify the CIFAR10 dataset while also injecting 2 backdoors.
+These backdoors use 3x3 black-and-white triggers that map any datapoint from other classes to a target (backdoor 1 maps to class 3 and backdoor 2 to class 6).
+
+The script `recover.py` runs Importance Splitting in pixel-space using a Gaussian or IID kernel on both target classes. Results are displayed in `example_recoveries/` to be compared with original poisoned datapoints in `example_triggers/`.
 
 ### How to cite the research paper
 
