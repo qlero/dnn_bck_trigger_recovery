@@ -1,7 +1,7 @@
 import os
 import torch
 
-from importance_splitting import GaussianImportanceSplitting
+from importance_splitting import GaussianImportanceSplitting, IIDImportanceSplitting
 
 from model import ResNet18
 from model import TEST_LOADER as VAL_LOADER, NORMALIZER, DENORMALIZER
@@ -48,12 +48,25 @@ if __name__ == "__main__":
 
     # Declares the Gaussian IS process
     
+    # outer_iterations = 100
+    # inner_iterations = 40
+    # nb_candidates    = 64
+    # strength         = 1
+    # decay            = 0.02
+    # name             = "GaussianIS"
+    # IS = GaussianImportanceSplitting(outer_iterations, inner_iterations, nb_candidates, strength, decay, name)
+
+    # candidates, probabilities, thresholds = IS.engine(model, datapoints, targets[0], NORMALIZER, DENORMALIZER, DEVICE)
+
+    # Declares the IID IS process
+    
     outer_iterations = 100
     inner_iterations = 40
     nb_candidates    = 64
-    strength         = 1
+    strength         = 0.5
     decay            = 0.02
-    name             = "GaussianIS"
-    IS = GaussianImportanceSplitting(outer_iterations, inner_iterations, nb_candidates, strength, decay, name)
+    sparseness       = 0.1
+    name             = "IIDIS"
+    IS = IIDImportanceSplitting(outer_iterations, inner_iterations, nb_candidates, strength, decay, sparseness, name)
 
     candidates, probabilities, thresholds = IS.engine(model, datapoints, targets[0], NORMALIZER, DENORMALIZER, DEVICE)

@@ -76,14 +76,14 @@ class ImportanceSplitting():
                 print(f"[INFO] updated strength down: {self.strength}")
             if torch.sum(mask)/len(mask) < 1/3:
                 self.strength /= (1-self.decay)
-                # self.strength = min(self.strength, 1)
+                self.strength = min(self.strength, 1)
                 print(f"[INFO] updated strength up: {self.strength}")
 
             # Updates the candidates' list
             candidates[self.cutoff:] = regenerated_candidates
 
             # Saves recovered triggers
-            mean_candidate = torch.mean(candidates, axis=0, keepdim=True)
+            mean_candidate = torch.mean(candidates[:self.cutoff], axis=0, keepdim=True)
             save_image(self.format_to_image(mean_candidate[0]).detach().cpu(), f"example_recoveries/importance_splitting_{self.name}_iter_{out_it}.png")
 
         return candidates, probabilities, thresholds
@@ -116,30 +116,46 @@ class GaussianImportanceSplitting(ImportanceSplitting):
         return scores
 
 
-# def iid_kernel(data, s, device):
-#     mask = torch.rand(data.shape).to(device) < s
-#     rep = iid_generator(len(data), device)
-#     ret = torch.zeros(data.shape).to(device)
-#     ret[:,:,:,:] = torch.tensor(float("inf"))
-#     ret[torch.logical_not(mask)] = data[torch.logical_not(mask)]
-#     ret[torch.logical_and(mask, rep != torch.tensor(float("inf")))] = rep[torch.logical_and(mask, rep != torch.tensor(float("inf")))]
-#     ret[torch.logical_and(mask, rep == torch.tensor(float("inf")))] = ret[torch.logical_and(mask, rep == torch.tensor(float("inf")))]
-#     return ret
+class IIDImportanceSplitting(ImportanceSplitting):
 
-# def iid_generator(n, device, alpha=0.1):
-#     mask = torch.rand((n, 1, 48, 48)).to(device) > alpha
-#     data = torch.rand((n, 1, 48, 48)).to(device)
-#     data[mask] = torch.tensor(float("inf"))
-#     return data
+    def __init__(self, outer_iterations, inner_iterations, nb_candidates, strength, decay, sparseness, name):
+        self.sparseness = sparseness
+        super().__init__(outer_iterations, inner_iterations, nb_candidates, strength, decay, name)
 
-# def iid_scorer(data, delta, model, target_class, normalize):
-#     d = data.clone()
-#     dd = delta.repeat(len(d),3,1,1)
-#     # print(d.shape, dd.shape)
-#     d[dd!=torch.tensor(float("inf"))] = dd[dd!=torch.tensor(float("inf"))]
-#     outputs = model(normalize(d))
-#     score = torch.mean(outputs[:,target_class]).detach().cpu().item()
-#     return score, d[0]
+    def format_to_image(self, candidates):
+        c = candidates.clone()
+        c[c==torch.tensor(float("inf"))] = 0.5
+        return c
+
+    def generator(self, draws, shape, device):
+        mask = torch.rand(draws, *shape[1:]) < self.sparseness
+        data = torch.rand(draws, *shape[1:]).to(device)
+        data[mask] = torch.tensor(float("inf"))
+        return data
+
+    def kernel(self, candidates, device):
+        mask = torch.rand(candidates.shape).to(device) < self.strength
+        rep = self.generator(self.nb_to_redraw, candidates.shape, device)
+        ret = torch.zeros(candidates.shape).to(device)
+        ret[:,:,:,:] = torch.tensor(float("inf"))
+        ret[torch.logical_not(mask)] = candidates[torch.logical_not(mask)]
+        ret[torch.logical_and(mask, rep != torch.tensor(float("inf")))] = rep[torch.logical_and(mask, rep != torch.tensor(float("inf")))]
+        ret[torch.logical_and(mask, rep == torch.tensor(float("inf")))] = ret[torch.logical_and(mask, rep == torch.tensor(float("inf")))]
+        return ret
+
+    def scorer(self, model, data, candidates, target_class, normalize, denormalize):
+        # duplicates data and candidates along each other's axis and candidates number
+        d = denormalize(data.reshape(data.shape[0], 1, *data.shape[1:]).repeat(1, candidates.shape[0], *[1]*(len(data.shape)-1)).clone())
+        c = candidates.reshape(1, *candidates.shape).repeat(data.shape[0], *[1]*len(data.shape))
+        # Injects the candidates into the data and scores
+        m = c!=torch.tensor(float("inf"))
+        d[m] = c[m]
+        d    = d.reshape(data.shape[0]*candidates.shape[0], *data.shape[1:])
+        scores = model(normalize(d))[:,target_class].reshape(data.shape[0], candidates.shape[0])
+        scores = torch.mean(scores, axis=0)
+        assert(list(scores.shape) == [candidates.shape[0]])
+        return scores
+
 
 # def iid_importance_splitting(model, target_class, normalize, device):
 
