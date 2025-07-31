@@ -4,7 +4,8 @@ import torch
 from importance_splitting import GaussianImportanceSplitting, IIDImportanceSplitting
 
 from model import ResNet18
-from model import TEST_LOADER as VAL_LOADER, NORMALIZER, DENORMALIZER
+from model import TEST_LOADER as VAL_LOADER
+from model import NORMALIZER, DENORMALIZER
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(f"[INFO] Currently used device: {DEVICE}")
